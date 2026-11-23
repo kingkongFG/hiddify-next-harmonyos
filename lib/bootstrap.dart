@@ -111,6 +111,30 @@ Future<void> _lazyBootstrap(
     ),
   );
 
+  // OHOS adapt: report what the embedder actually handed us. A wrong
+  // `padding`/`viewInsets` here silently collapses every Scaffold body to zero
+  // height, which looks exactly like a blank page with a working bottom bar.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    for (final view in views) {
+      final dpr = view.devicePixelRatio;
+      print(
+        '[DIAG] view physical=${view.physicalSize} dpr=$dpr '
+        'logical=${view.physicalSize / dpr} '
+        'padding=${view.padding} viewPadding=${view.viewPadding} '
+        'viewInsets=${view.viewInsets}',
+      );
+      final pad = view.padding;
+      final insets = view.viewInsets;
+      print(
+        '[DIAG] view logicalPadding='
+        'l:${pad.left / dpr} t:${pad.top / dpr} '
+        'r:${pad.right / dpr} b:${pad.bottom / dpr} '
+        'logicalViewInsets=t:${insets.top / dpr} b:${insets.bottom / dpr}',
+      );
+    }
+  });
+
   if (!silentStart) FlutterNativeSplash.remove();
 }
 
@@ -147,12 +171,23 @@ Future<void> initControllers(
   Result Function<Result>(ProviderListenable<Result>) read,
 ) async {
   _logger.debug("initializing controllers");
-  await Future.wait(
-    [
-      read(activeProfileProvider.future),
-      read(deepLinkServiceProvider.future),
-      if (PlatformUtils.isDesktop) read(systemTrayControllerProvider.future),
-    ],
-  );
+  // OHOS adapt: log which controller aborted the bootstrap.
+  //
+  // Upstream awaits Future.wait and lets any failure propagate, which aborts
+  // the bootstrap before runApp() and leaves the app on the native splash
+  // screen. The failure itself is not reported anywhere, so a broken
+  // platform plugin looks exactly like a blank white screen with no clue.
+  // The rethrow keeps the upstream semantics; only the diagnostics are added.
+  final futures = <String, Future<dynamic>>{
+    'activeProfile': read(activeProfileProvider.future),
+    'deepLinkService': read(deepLinkServiceProvider.future),
+    if (PlatformUtils.isDesktop) 'systemTray': read(systemTrayControllerProvider.future),
+  };
+  try {
+    await Future.wait(futures.values);
+  } catch (e, stackTrace) {
+    _logger.error('bootstrap aborted while initializing controllers', e, stackTrace);
+    rethrow;
+  }
   _logger.debug("initialized base controllers");
 }

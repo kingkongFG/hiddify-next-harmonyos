@@ -1,8 +1,6 @@
 include: package:lint/strict.yaml
 
 analyzer:
-  plugins:
-    - custom_lint
   exclude:
     - "libcore/**"
     - "**.g.dart"
@@ -16,7 +14,12 @@ linter:
     sort_unnamed_constructors_first: false
     avoid_classes_with_only_static_members: false
 
-custom_lint:
-  rules:
-    # Enable one rule
-    - provider_parameters
+# OHOS adapt: the custom_lint analyzer plugin is disabled together with the
+# matching dev dependencies (see pubspec.yaml) because it is incompatible with
+# the analyzer version used by the HarmonyOS toolchain.
+# analyzer:
+#   plugins:
+#     - custom_lint
+# custom_lint:
+#   rules:
+#     - provider_parameters

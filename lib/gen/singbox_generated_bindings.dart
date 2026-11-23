@@ -885,6 +885,26 @@ class SingboxNativeLibrary {
     );
   }
 
+  /// OHOS adapt: inject the TUN file descriptor created by the system VPN
+  /// Extension. A value of 0 means "not injected".
+  void setTunFd(int fd) {
+    return _setTunFd(fd);
+  }
+
+  late final _setTunFdPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int)>>('setTunFd');
+  late final _setTunFd =
+      _setTunFdPtr.asFunction<void Function(int)>();
+
+  /// OHOS adapt: read back the currently injected TUN file descriptor.
+  int getTunFd() {
+    return _getTunFd();
+  }
+
+  late final _getTunFdPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function()>>('getTunFd');
+  late final _getTunFd = _getTunFdPtr.asFunction<int Function()>();
+
   late final _setupPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>,

@@ -81,7 +81,10 @@ ConfigOptions configOptions(ConfigOptionsRef ref) => ConfigOptions(
       mixedPort: ref.watch(mixedPortStore),
       localDnsPort: ref.watch(localDnsPortStore),
       tunImplementation: ref.watch(tunImplementationStore),
-      mtu: ref.watch(mtuStore),
+      // OHOS adapt: VpnConfig.mtu only accepts [576, 1500]. Older builds
+      // persisted 9000, and a MTU larger than the virtual NIC makes lwip emit
+      // segments the kernel drops on write-back.
+      mtu: ref.watch(mtuStore).clamp(576, 1500).toInt(),
       connectionTestUrl: ref.watch(connectionTestUrlStore),
       urlTestInterval: ref.watch(urlTestIntervalStore),
       enableClashApi: ref.watch(enableClashApiStore),

@@ -6,6 +6,66 @@ version: 0.9.0+900
 environment:
   sdk: ">=3.0.5 <4.0.0"
 
+# OHOS 适配: Flutter 3.27 的 flutter_localizations 强制 intl 0.19,
+# 而 humanizer 等旧包仍锁 intl 0.18,统一覆盖到 0.19。
+dependency_overrides:
+  intl: ^0.19.0
+  # OHOS adapt: the Dart 3.6 toolchain resolves analyzer 6.x, but every
+  # published custom_lint_core release ships sources that reference AST nodes
+  # introduced in analyzer 8.x. That makes `dart run build_runner build` fail
+  # before anything is generated, and the upstream package cannot be patched
+  # because it is pulled in transitively by riverpod_analyzer_utils.
+  #
+  # The local shim below only exposes the `TypeChecker` helper, which is the
+  # single symbol riverpod_analyzer_utils actually uses.
+  custom_lint_core:
+    path: G:/DevTemp/workbuddyDL/custom_lint_core_stub
+  # go_router_builder 2.9.x targets the go_router 16.x API while the project
+  # pins go_router 11.x, which makes the builder fail on `caseSensitive`.
+  go_router_builder: 2.3.3
+  # OHOS adapt: the OpenHarmony Flutter fork adds `TargetPlatform.ohos` to the
+  # platform enum. flex_color_scheme 7.3.1 switches exhaustively over
+  # TargetPlatform, so the extra value makes the package fail to compile.
+  # The local copy only adds the missing `ohos` branches, which follow the
+  # Android behaviour because HarmonyOS is a mobile platform.
+  flex_color_scheme:
+    path: G:/DevTemp/workbuddyDL/flex_color_scheme_ohos
+  # OHOS adapt: the sqlite3 package only knows android/linux/iOS/macOS/windows
+  # and its default loader throws `UnsupportedError: Unsupported platform:
+  # ohos` on HarmonyOS (Platform.isLinux is false there). The local copy adds
+  # an `ohos` branch that dlopen()s the bundled libsqlite3.so.
+  #
+  # The override has to live inside the package rather than in the app: drift
+  # opens the database with `NativeDatabase.createInBackground`, i.e. inside a
+  # background isolate, and an `open.overrideForAll` registered on the main
+  # isolate is not visible from there.
+  sqlite3:
+    path: G:/DevTemp/workbuddyDL/sqlite3_ohos
+  # OHOS adapt: protocol_handler has no HarmonyOS implementation, so
+  # ProtocolRegistrar.instance falls through to the base class and
+  # register() throws UnimplementedError. That exception escapes
+  # DeepLinkService.build(), which aborts the bootstrap before runApp() and
+  # leaves the app on the native splash screen. The local copy adds an `ohos`
+  # registrar whose register() is a no-op, and skips the getInitialUrl()
+  # method channel call (HarmonyOS delivers deep links through Want).
+  protocol_handler:
+    path: G:/DevTemp/workbuddyDL/protocol_handler_ohos
+  # OHOS adapt: these plugins ship no `ohos` platform implementation, so every
+  # platform channel call fails with MissingPluginException and the app never
+  # gets past its bootstrap. The OpenHarmony community maintains federated
+  # `_ohos` implementations; the Dart side of each package is pulled from the
+  # matching branch so the versions stay in sync with its implementation.
+  shared_preferences:
+    path: G:/DevTemp/workbuddyDL/ohos_pkgs/fp/packages/shared_preferences/shared_preferences
+  shared_preferences_ohos:
+    path: G:/DevTemp/workbuddyDL/ohos_pkgs/fp/packages/shared_preferences/shared_preferences_ohos
+  path_provider:
+    path: G:/DevTemp/workbuddyDL/ohos_pkgs/fpp/packages/path_provider/path_provider
+  path_provider_ohos:
+    path: G:/DevTemp/workbuddyDL/ohos_pkgs/fpp/packages/path_provider/path_provider_ohos
+  package_info_plus_ohos:
+    path: G:/DevTemp/workbuddyDL/ohos_pkgs/pip
+
 dependencies:
   flutter:
     sdk: flutter
@@ -14,7 +74,7 @@ dependencies:
   # internationalization
   flutter_localizations:
     sdk: flutter
-  intl: ^0.18.1
+  intl: ^0.19.0
   slang: ^3.24.0
   slang_flutter: ^3.24.0
   timeago: ^3.5.0
@@ -99,9 +159,14 @@ dev_dependencies:
   slang_build_runner: ^3.24.0
   flutter_gen_runner: ^5.3.2
   go_router_builder: ^2.3.3
-  custom_lint: ^0.5.3
-  riverpod_lint: ^2.1.1
   icons_launcher: ^2.1.4
+  # OHOS adapt: custom_lint / riverpod_lint are dev-only lint tooling. Their
+  # analyzer plugin does not match the analyzer version resolved for the
+  # HarmonyOS toolchain and breaks `dart run build_runner build`, which is
+  # required to produce the freezed/json_serializable sources. They are not
+  # needed to build or run the app, so they are disabled on this branch.
+  # custom_lint: ^0.5.3
+  # riverpod_lint: ^2.1.1
 
 flutter:
   uses-material-design: true

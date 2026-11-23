@@ -10,10 +10,15 @@ abstract interface class SingboxService {
   factory SingboxService() {
     if (Platform.isAndroid) {
       return MobileSingboxService();
+    } else if (Platform.isIOS) {
+      return MobileSingboxService();
     } else if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
       return FFISingboxService();
+    } else {
+      // OHOS adapt: HarmonyOS 走 FFI 直调 libcore.so（dart:ffi）
+      // Dart 3.6 无 Platform.isOHOS，用兜底分支覆盖鸿蒙
+      return FFISingboxService();
     }
-    throw Exception("unsupported platform");
   }
 
   Future<void> init();

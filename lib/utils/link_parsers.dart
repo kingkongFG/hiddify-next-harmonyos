@@ -16,7 +16,14 @@ abstract class LinkParser {
     'trojan',
     'tuic',
     'hysteria2',
+    'hy2',
     'ssh',
+    // OHOS adapt: the official Hiddify protocol stack also lists
+    // WireGuard, NaiveProxy and ShadowTLS, so those link schemes are
+    // recognised as proxy links as well.
+    'wg',
+    'naive',
+    'shadowtls',
   };
 
   static ProfileLink? parse(String link) {
@@ -26,10 +33,37 @@ abstract class LinkParser {
   static ProfileLink? simple(String link) {
     if (!isUrl(link)) return null;
     final uri = Uri.parse(link.trim());
+    // OHOS adapt: the name of a shared subscription lives in the URL fragment
+    // ("https://host/path?token=x#Node Name"), while upstream only looked at
+    // the "name" query parameter. Android's share sheet and the Chinese
+    // providers both use the fragment form, so read it as a fallback.
+    final name = uri.queryParameters['name'] ??
+        (uri.hasFragment ? Uri.decodeComponent(uri.fragment) : '') ??
+        '';
     return (
       url: uri.toString(),
-      name: uri.queryParameters['name'] ?? '',
+      name: name,
     );
+  }
+
+  /// Extracts the first URL-looking token out of a free-form text.
+  ///
+  /// The Android share sheet and most IM apps copy a whole chat message, so
+  /// the clipboard may contain a title line followed by the actual link.
+  /// Upstream only accepted the raw URL, which made "add from clipboard" fail
+  /// for anything that was not copied verbatim.
+  static ProfileLink? fromText(String text) {
+    final trimmed = text.trim();
+    final direct = parse(trimmed);
+    if (direct != null) return direct;
+
+    for (final line in trimmed.split(RegExp(r'[\r\n]'))) {
+      final candidate = line.trim();
+      if (candidate.isEmpty) continue;
+      final parsed = parse(candidate);
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 
   static ({String content, String name})? protocol(String content) {
@@ -47,6 +81,10 @@ abstract class LinkParser {
         'tuic' => fragment ?? ProxyType.tuic.label,
         'hy2' || 'hysteria2' => fragment ?? ProxyType.hysteria.label,
         'ssh' => fragment ?? ProxyType.ssh.label,
+        // OHOS adapt: WireGuard / NaiveProxy / ShadowTLS links.
+        'wg' => fragment ?? ProxyType.wireguard.label,
+        'naive' => fragment ?? ProxyType.naive.label,
+        'shadowtls' => fragment ?? ProxyType.shadowtls.label,
         _ => null,
       };
       if (name != null) {

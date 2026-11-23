@@ -53,7 +53,10 @@ class ProfilesNotifier extends _$ProfilesNotifier with AppLogger {
     final activeProfile = await ref.read(activeProfileProvider.future);
     final markAsActive =
         activeProfile == null || ref.read(markNewProfileActiveProvider);
-    if (LinkParser.parse(rawInput) case (final link)?) {
+    // OHOS adapt: `fromText` additionally copes with clipboard payloads that
+    // carry a title line in front of the link, which is what the Android
+    // share sheet and most IM apps put on the clipboard.
+    if (LinkParser.fromText(rawInput) case (final link)?) {
       loggy.debug("adding profile, url: [${link.url}]");
       return ref
           .read(profilesRepositoryProvider)

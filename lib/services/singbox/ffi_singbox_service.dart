@@ -10,6 +10,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:hiddify/domain/connectivity/connectivity.dart';
 import 'package:hiddify/domain/singbox/config_options.dart';
 import 'package:hiddify/gen/singbox_generated_bindings.dart';
+import 'package:hiddify/services/singbox/ohos_vpn_bridge.dart';
 import 'package:hiddify/services/singbox/shared.dart';
 import 'package:hiddify/services/singbox/singbox_service.dart';
 import 'package:hiddify/utils/utils.dart';
@@ -30,19 +31,42 @@ class FFISingboxService
   Stream<String>? _groupsStream;
 
   static SingboxNativeLibrary _gen() {
-    String fullPath = "";
-    if (Platform.environment.containsKey('FLUTTER_TEST')) {
-      fullPath = "libcore";
-    }
+    String libName;
     if (Platform.isWindows) {
-      fullPath = p.join(fullPath, "libcore.dll");
+      libName = "libcore.dll";
     } else if (Platform.isMacOS) {
-      fullPath = p.join(fullPath, "libcore.dylib");
+      libName = "libcore.dylib";
     } else {
-      fullPath = p.join(fullPath, "libcore.so");
+      libName = "libcore.so";
     }
-    _logger.debug('singbox native libs path: "$fullPath"');
-    final lib = DynamicLibrary.open(fullPath);
+
+    // OHOS adapt: 鸿蒙上 dlopen 的搜索路径不含应用 libs 目录，
+    // 依次尝试多个候选路径（相对名 / 应用沙箱绝对路径）。
+    final candidates = <String>[
+      if (Platform.environment.containsKey('FLUTTER_TEST')) p.join("libcore", libName),
+      libName,
+      p.join("/data/app", libName),
+    ];
+    if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) {
+      final execDir = p.dirname(Platform.resolvedExecutable);
+      candidates.add(p.join(execDir, "libs", "arm64-v8a", libName));
+      candidates.add(p.join(execDir, "libs", "arm64", libName));
+      candidates.add(p.join(execDir, libName));
+    }
+
+    DynamicLibrary? lib;
+    for (final candidate in candidates) {
+      try {
+        lib = DynamicLibrary.open(candidate);
+        _logger.debug('singbox native libs path: "$candidate"');
+        break;
+      } catch (e) {
+        _logger.debug('failed to open singbox native lib at "$candidate": $e');
+      }
+    }
+    if (lib == null) {
+      throw StateError('Failed to load $libName from candidates: $candidates');
+    }
     return SingboxNativeLibrary(lib);
   }
 
@@ -131,33 +155,63 @@ class FFISingboxService
   @override
   TaskEither<String, Unit> start(String configPath) {
     return TaskEither(
-      () => CombineWorker().execute(
-        () {
-          final err = _box
-              .start(configPath.toNativeUtf8().cast())
-              .cast<Utf8>()
-              .toDartString();
-          if (err.isNotEmpty) {
-            return left(err);
+      () async {
+        // OHOS adapt: the system VPN extension owns the TUN device, so ask
+        // it for the file descriptor and hand it to the core before the core
+        // starts reading from the tunnel.
+        //
+        // The platform channel call has to be issued on the root isolate. A
+        // background isolate has no binary messenger attached to it, so an
+        // `invokeMethod` sent from the worker would never be answered and the
+        // call would sit there until it times out.
+        var tunFd = -1;
+        if (OhosVpnBridge.isSupported) {
+          try {
+            tunFd = await OhosVpnBridge.instance.prepare();
+          } catch (e) {
+            _logger.error('failed to prepare the vpn tunnel: $e');
+            return left('failed to prepare the vpn tunnel: $e');
           }
-          return right(unit);
-        },
-      ),
+        }
+        return await CombineWorker().execute<Either<String, Unit>>(
+          () {
+            if (tunFd > 0) {
+              _box.setTunFd(tunFd);
+            }
+            final err = _box
+                .start(configPath.toNativeUtf8().cast())
+                .cast<Utf8>()
+                .toDartString();
+            if (err.isNotEmpty) {
+              return left(err);
+            }
+            return right(unit);
+          },
+        );
+      },
     );
   }
 
   @override
   TaskEither<String, Unit> stop() {
     return TaskEither(
-      () => CombineWorker().execute(
-        () {
+      () async {
+        final result =
+            await CombineWorker().execute<Either<String, Unit>>(() {
           final err = _box.stop().cast<Utf8>().toDartString();
           if (err.isNotEmpty) {
             return left(err);
           }
           return right(unit);
-        },
-      ),
+        });
+        // OHOS adapt: tear the system VPN extension down once the core
+        // stopped reading from the tunnel. The platform channel call has to
+        // be issued on the root isolate, see `start` above.
+        if (OhosVpnBridge.isSupported) {
+          await OhosVpnBridge.instance.stop();
+        }
+        return result;
+      },
     );
   }
 

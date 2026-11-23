@@ -77,16 +77,16 @@
             "successMsg": "配置文件删除成功"
         },
         "save": {
-            "buttonText": "节省",
+            "buttonText": "保存",
             "successMsg": "个人资料保存成功",
             "failureMsg": "保存配置文件失败"
         },
         "detailsForm": {
-            "nameLabel": "姓名",
+            "nameLabel": "名称",
             "nameHint": "个人资料名称",
             "urlLabel": "网址",
             "urlHint": "完整配置网址",
-            "emptyNameMsg": "姓名为必填项",
+            "emptyNameMsg": "名称为必填项",
             "invalidUrlMsg": "无效的网址",
             "lastUpdate": "最后更新",
             "updateInterval": "自动更新",

@@ -24,7 +24,9 @@ class ConfigOptions with _$ConfigOptions {
     @Default(2334) int mixedPort,
     @Default(6450) int localDnsPort,
     @Default(TunImplementation.mixed) TunImplementation tunImplementation,
-    @Default(9000) int mtu,
+    // HarmonyOS VpnConfig.mtu is limited to [576, 1500]; 1500 matches the
+    // virtual NIC created by the VPN extension.
+    @Default(1500) int mtu,
     @Default("https://www.gstatic.com/generate_204") String connectionTestUrl,
     @IntervalConverter()
     @Default(Duration(minutes: 10))

@@ -16,17 +16,37 @@ import 'package:sliver_tools/sliver_tools.dart';
 class HomePage extends HookConsumerWidget {
   const HomePage({super.key});
 
+  static int _diagCount = 0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
     final hasAnyProfile = ref.watch(hasAnyProfileProvider);
     final activeProfile = ref.watch(activeProfileProvider);
 
+    // OHOS adapt: the Scaffold used to wrap the scroll view in a `Stack` that
+    // had exactly one child and a `bottomCenter` alignment. That is dead
+    // weight upstream, but on the HarmonyOS embedder a loose-constrained
+    // single-child Stack can collapse the viewport to zero height, which
+    // renders the whole home page - app bar and "+" action included - as an
+    // empty surface. The scroll view is the only child, so it can be used
+    // directly.
     return Scaffold(
-      body: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          CustomScrollView(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (_diagCount < 5) {
+            _diagCount++;
+            final mq = MediaQuery.maybeOf(context);
+            print(
+              '[DIAG] HomePage constraints=$constraints '
+              'mqSize=${mq?.size} mqPadding=${mq?.padding} '
+              'mqViewPadding=${mq?.viewPadding} '
+              'mqViewInsets=${mq?.viewInsets} dpr=${mq?.devicePixelRatio} '
+              'hasAnyProfile=${hasAnyProfile.runtimeType} '
+              'activeProfile=${activeProfile.runtimeType}',
+            );
+          }
+          return CustomScrollView(
             slivers: [
               NestedTabAppBar(
                 title: Row(
@@ -72,8 +92,8 @@ class HomePage extends HookConsumerWidget {
                 _ => const SliverToBoxAdapter(),
               },
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
