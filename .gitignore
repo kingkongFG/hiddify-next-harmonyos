@@ -55,3 +55,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local backup / temporary adaptation artifacts
+*.bak
+*.with_service
+tool/pkguri_probe.dart
