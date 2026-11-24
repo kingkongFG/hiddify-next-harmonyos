@@ -52,4 +52,21 @@ class OhosVpnBridge {
       _logger.error('failed to stop the vpn extension: $e');
     }
   }
+
+  /// Registers the callback for native -> Dart network change events.
+  ///
+  /// The native side watches the default physical network and asks us to
+  /// rebuild the whole tunnel when Wi-Fi gives way to cellular (or back).
+  /// The handler is fired without awaiting it so the platform channel is not
+  /// blocked while the tunnel is being torn down and recreated.
+  void setNetworkChangeHandler(Future<void> Function() handler) {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onNetworkChanged') {
+        _logger.info('network changed, requesting a tunnel rebuild');
+        unawaited(handler());
+        return null;
+      }
+      return null;
+    });
+  }
 }

@@ -9,9 +9,11 @@ import {
 } from '@ohos/flutter_ohos';
 import { AbilityConstant, wantAgent } from '@kit.AbilityKit';
 import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
+import { connection } from '@kit.NetworkKit';
 import type Want from '@ohos.app.ability.Want';
 import process from '@ohos.process';
 import { GeneratedPluginRegistrant } from '../plugins/GeneratedPluginRegistrant';
+import { OhosPlatformRpc, OhosPlatformService } from '../platform/OhosPlatformService';
 import { VpnLog } from '../vpn/VpnLog';
 import { VpnRpc } from '../vpn/VpnRpc';
 import { VpnUiBridge } from '../vpn/VpnUiBridge';
@@ -45,6 +47,18 @@ export default class EntryAbility extends FlutterAbility {
    * connected.
    */
   private continuousTaskRunning: boolean = false;
+
+  /** Channel used for Dart -> native calls and native -> Dart events. */
+  private vpnChannel: MethodChannel | undefined = undefined;
+
+  /** True while the tunnel is up; network events are ignored otherwise. */
+  private vpnActive: boolean = false;
+
+  /** netId of the physical network the current tunnel was built on. */
+  private lastNetId: number = -1;
+
+  private netConnection: connection.NetConnection | undefined = undefined;
+  private networkChangeTimer: number = -1;
 
   private async startContinuousTask(): Promise<void> {
     if (this.continuousTaskRunning) {
@@ -90,6 +104,89 @@ export default class EntryAbility extends FlutterAbility {
     this.continuousTaskRunning = false;
   }
 
+  /**
+   * Watches the default physical network.
+   *
+   * The Go core opens outbound sockets without binding an interface and
+   * `protectProcessNet()` is applied exactly once, when the TUN is created.
+   * When Wi-Fi gives way to cellular the kernel tears down every socket on
+   * the old netId; sockets opened on the new netId are not covered by that
+   * protection and are aborted with ECONNABORTED. sing-box's own netlink
+   * based network monitor cannot start in an app process (EPERM), so it
+   * never resets conntrack/DNS either. The tunnel stays up and swallows all
+   * traffic until the app is restarted.
+   *
+   * Rebuilding the tunnel on the new network re-applies the protection and
+   * gives lwip, DNS and conntrack a clean slate. A 2.5s debounce collapses
+   * the burst of netLost/netAvailable events, and comparing the physical
+   * netId prevents our own VPN interface from re-triggering a rebuild.
+   */
+  private startNetworkWatch(): void {
+    try {
+      const netConn = connection.createNetConnection();
+      const schedule = (reason: string): void => {
+        if (!this.vpnActive) {
+          return;
+        }
+        if (this.networkChangeTimer !== -1) {
+          clearTimeout(this.networkChangeTimer);
+        }
+        this.networkChangeTimer = setTimeout(() => {
+          this.networkChangeTimer = -1;
+          this.onNetworkSettled(reason);
+        }, 2500);
+      };
+      netConn.on('netLost', (_: connection.NetHandle): void => schedule('netLost'));
+      netConn.on('netAvailable', (_: connection.NetHandle): void => schedule('netAvailable'));
+      netConn.register((error): void => {
+        if (error) {
+          VpnLog.warn('failed to register the network watcher: ' + JSON.stringify(error));
+        } else {
+          VpnLog.info('the network watcher has been registered');
+        }
+      });
+      this.netConnection = netConn;
+    } catch (error) {
+      VpnLog.warn('failed to start the network watcher: ' + JSON.stringify(error));
+    }
+  }
+
+  /** Reads the netId of the current default physical (non-VPN) network. */
+  private currentNetId(): number {
+    try {
+      return connection.getDefaultNetSync().netId;
+    } catch (error) {
+      return -1;
+    }
+  }
+
+  private onNetworkSettled(reason: string): void {
+    if (!this.vpnActive) {
+      return;
+    }
+    const netId = this.currentNetId();
+    if (netId <= 0) {
+      // The new physical network is not up yet. Its netAvailable event will
+      // schedule another check once it is, so there is nothing to do here.
+      VpnLog.warn('default network is not ready yet (' + reason + ')');
+      return;
+    }
+    if (netId === this.lastNetId) {
+      return;
+    }
+    VpnLog.info('default network changed (' + reason + '): ' + this.lastNetId + ' -> ' + netId);
+    this.lastNetId = netId;
+    const channel = this.vpnChannel;
+    if (channel) {
+      channel.invokeMethod(VpnRpc.METHOD_NETWORK_CHANGED, {});
+    }
+  }
+
+  private rememberCurrentNetwork(): void {
+    this.lastNetId = this.currentNetId();
+    VpnLog.info('the tunnel is bound to netId ' + this.lastNetId);
+  }
+
   configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
     GeneratedPluginRegistrant.registerWith(flutterEngine)
@@ -112,6 +209,49 @@ export default class EntryAbility extends FlutterAbility {
       this.handleVpnMethodCall(call, result);
     });
     channel.setMethodCallHandler(handler);
+    this.vpnChannel = channel;
+
+    // Clipboard / system-share bridge. Kept on its own channel so VPN calls
+    // and platform services cannot block each other.
+    const platformService = OhosPlatformService.getInstance();
+    platformService.setContext(this.context);
+    const platformChannel = new MethodChannel(
+      flutterEngine.dartExecutor.getBinaryMessenger(),
+      OhosPlatformRpc.CHANNEL,
+    );
+    platformChannel.setMethodCallHandler(
+      new VpnMethodCallHandler((call: MethodCall, result: MethodResult): void => {
+        this.handlePlatformMethodCall(call, result);
+      }),
+    );
+
+    this.startNetworkWatch();
+  }
+
+  private async handlePlatformMethodCall(
+    call: MethodCall,
+    result: MethodResult,
+  ): Promise<void> {
+    const service = OhosPlatformService.getInstance();
+    switch (call.method) {
+      case OhosPlatformRpc.METHOD_READ_CLIPBOARD:
+        result.success(await service.readClipboardText());
+        break;
+      case OhosPlatformRpc.METHOD_WRITE_CLIPBOARD: {
+        const text = call.argument(OhosPlatformRpc.ARG_TEXT) as string;
+        result.success(await service.writeClipboardText(text ?? ''));
+        break;
+      }
+      case OhosPlatformRpc.METHOD_SHARE_TEXT: {
+        const text = call.argument(OhosPlatformRpc.ARG_TEXT) as string;
+        const title = call.argument(OhosPlatformRpc.ARG_TITLE) as string;
+        result.success(await service.shareText(text ?? '', title ?? ''));
+        break;
+      }
+      default:
+        result.notImplemented();
+        break;
+    }
   }
 
   /**
@@ -135,8 +275,11 @@ export default class EntryAbility extends FlutterAbility {
         await this.startContinuousTask();
         try {
           const fd = await bridge.prepare();
+          this.vpnActive = true;
+          this.rememberCurrentNetwork();
           result.success(fd);
         } catch (error) {
+          this.vpnActive = false;
           await this.stopContinuousTask();
           result.error(
             'VPN_PREPARE_FAILED',
@@ -146,6 +289,7 @@ export default class EntryAbility extends FlutterAbility {
         }
         break;
       case VpnRpc.METHOD_STOP:
+        this.vpnActive = false;
         await bridge.stop();
         await this.stopContinuousTask();
         result.success(null);

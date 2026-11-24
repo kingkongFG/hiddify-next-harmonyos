@@ -11,6 +11,8 @@ import 'package:hiddify/data/data_providers.dart';
 import 'package:hiddify/data/repository/app_repository_impl.dart';
 import 'package:hiddify/domain/environment.dart';
 import 'package:hiddify/features/common/active_profile/active_profile_notifier.dart';
+import 'package:hiddify/features/common/connectivity/connectivity_controller.dart';
+import 'package:hiddify/services/singbox/ohos_vpn_bridge.dart';
 import 'package:hiddify/features/common/window/window_controller.dart';
 import 'package:hiddify/features/system_tray/system_tray.dart';
 import 'package:hiddify/services/auto_start_service.dart';
@@ -101,6 +103,18 @@ Future<void> _lazyBootstrap(
 
   await initAppServices(container.read);
   await initControllers(container.read);
+
+  // OHOS adapt: a Wi-Fi <-> cellular switch abandons every outbound socket
+  // built on the old physical network and invalidates the one-shot
+  // protectProcessNet() call. Rebuild the whole tunnel when that happens,
+  // otherwise the VPN keeps swallowing traffic with nobody able to forward it.
+  if (OhosVpnBridge.isSupported) {
+    OhosVpnBridge.instance.setNetworkChangeHandler(() async {
+      await container
+          .read(connectivityControllerProvider.notifier)
+          .rebuildAfterNetworkChange();
+    });
+  }
 
   runApp(
     ProviderScope(

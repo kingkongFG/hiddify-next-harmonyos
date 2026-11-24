@@ -6,6 +6,7 @@ import 'package:hiddify/domain/failures.dart';
 import 'package:hiddify/domain/profiles/profiles.dart';
 import 'package:hiddify/features/common/confirmation_dialogs.dart';
 import 'package:hiddify/features/profile_detail/notifier/notifier.dart';
+import 'package:hiddify/features/profiles/view/share_profile_sheet.dart';
 import 'package:hiddify/features/settings/widgets/widgets.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -98,6 +99,12 @@ class ProfileDetailPage extends HookConsumerWidget with PresLogger {
                     title: Text(t.profile.detailsPageTitle),
                     pinned: true,
                     actions: [
+                      IconButton(
+                        onPressed: () =>
+                            ShareProfileSheet.show(context, state.profile),
+                        icon: const Icon(Icons.share),
+                        tooltip: t.general.share,
+                      ),
                       if (state.isEditing)
                         PopupMenuButton(
                           itemBuilder: (context) {

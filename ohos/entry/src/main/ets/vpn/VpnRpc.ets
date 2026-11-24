@@ -64,6 +64,9 @@ export class VpnRpc {
   /** Method that tears the VPN extension down. */
   static readonly METHOD_STOP: string = 'stop';
 
+  /** Native -> Dart event emitted when the default physical network changes. */
+  static readonly METHOD_NETWORK_CHANGED: string = 'onNetworkChanged';
+
   /** Builds the parameter object that transports a descriptor. */
   static makeFdCarrier(fd: number): VpnFdCarrier {
     const carrier: VpnFdCarrier = { type: VpnRpc.FD_TYPE, value: fd };

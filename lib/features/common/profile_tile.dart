@@ -9,6 +9,7 @@ import 'package:hiddify/domain/failures.dart';
 import 'package:hiddify/domain/profiles/profiles.dart';
 import 'package:hiddify/features/common/confirmation_dialogs.dart';
 import 'package:hiddify/features/profiles/notifier/notifier.dart';
+import 'package:hiddify/features/profiles/view/share_profile_sheet.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:percent_indicator/percent_indicator.dart';
@@ -286,6 +287,13 @@ class ProfileActionsMenu extends HookConsumerWidget {
           },
         ),
         MenuItemButton(
+          leadingIcon: const Icon(Icons.share),
+          child: Text(t.general.share),
+          onPressed: () async {
+            await ShareProfileSheet.show(context, profile);
+          },
+        ),
+        MenuItemButton(
           leadingIcon: const Icon(Icons.delete),
           child: Text(t.profile.delete.buttonTxt),
           onPressed: () async {
@@ -372,27 +380,50 @@ class RemainingTrafficIndicator extends StatelessWidget {
 
   final double ratio;
 
+  static const double _lineHeight = 6;
+
   @override
   Widget build(BuildContext context) {
-    final startColor = ratio < 0.25
+    // OHOS adapt: guard against subscriptions that report no quota at all
+    // (`total == 0`, or a malformed header). `consumption / 0` yields
+    // NaN/Infinity and `clamp` passes NaN straight through, which would make
+    // the progress painter draw garbage.
+    final percent = ratio.isFinite ? ratio.clamp(0.0, 1.0) : 0.0;
+
+    final startColor = percent < 0.25
         ? const Color.fromRGBO(93, 205, 251, 1.0)
-        : ratio < 0.65
+        : percent < 0.65
             ? const Color.fromRGBO(205, 199, 64, 1.0)
             : const Color.fromRGBO(241, 82, 81, 1.0);
-    final endColor = ratio < 0.25
+    final endColor = percent < 0.25
         ? const Color.fromRGBO(49, 146, 248, 1.0)
-        : ratio < 0.65
+        : percent < 0.65
             ? const Color.fromRGBO(98, 115, 32, 1.0)
             : const Color.fromRGBO(139, 30, 36, 1.0);
 
-    return LinearPercentIndicator(
-      percent: ratio,
-      animation: true,
-      padding: EdgeInsets.zero,
-      lineHeight: 6,
-      barRadius: const Radius.circular(16),
-      linearGradient: LinearGradient(
-        colors: [startColor, endColor],
+    // OHOS adapt: `LinearPercentIndicator` renders its bar inside a
+    // `LayoutBuilder` (percent_indicator 4.2.5, line 268). `ProfileTile` wraps
+    // this widget in an `IntrinsicHeight`, and Flutter refuses intrinsic
+    // queries on `LayoutBuilder`:
+    //   "LayoutBuilder does not support returning intrinsic dimensions"
+    // The exception is thrown during layout, so the whole tile - and every
+    // sliver sharing its CustomScrollView, app bar and "+" action included -
+    // fails to render. That is exactly what happened once a second
+    // subscription with quota data became the active profile: the first one
+    // had no `subInfo`, so this indicator was never built.
+    // A tight SizedBox answers the intrinsic query itself and never forwards
+    // it to the LayoutBuilder underneath.
+    return SizedBox(
+      height: _lineHeight,
+      child: LinearPercentIndicator(
+        percent: percent,
+        animation: true,
+        padding: EdgeInsets.zero,
+        lineHeight: _lineHeight,
+        barRadius: const Radius.circular(16),
+        linearGradient: LinearGradient(
+          colors: [startColor, endColor],
+        ),
       ),
     );
   }

@@ -68,6 +68,40 @@ class ConnectivityController extends _$ConnectivityController with AppLogger {
     }
   }
 
+  /// Rebuilds the entire tunnel after the default physical network changed.
+  ///
+  /// A Wi-Fi <-> cellular switch abandons every outbound socket built on the
+  /// old network and invalidates the one-shot `protectProcessNet()` call. A
+  /// plain `restart()` is not enough: it only restarts the Go core and does
+  /// not recreate the TUN, so the new sockets stay unprotected. A full
+  /// stop/start destroys and recreates the VPN session on the new network.
+  bool _rebuilding = false;
+
+  Future<void> rebuildAfterNetworkChange() async {
+    if (_rebuilding) return;
+    if (state case AsyncData(:final value) when value == const Connected()) {
+      _rebuilding = true;
+      try {
+        loggy.info("network changed, rebuilding the VPN tunnel");
+        await _core.stop().run();
+        // Give the system time to tear the old VPN session down before a new
+        // one is requested; otherwise the extension can observe a stale fd.
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        final activeProfile = await ref.read(activeProfileProvider.future);
+        if (activeProfile == null) return;
+        final first = await _core.start(activeProfile.id).run();
+        if (first.isLeft()) {
+          // The new physical network may still be coming up. Retry once.
+          loggy.warning("first rebuild attempt failed, retrying");
+          await Future<void>.delayed(const Duration(seconds: 2));
+          await _core.start(activeProfile.id).run();
+        }
+      } finally {
+        _rebuilding = false;
+      }
+    }
+  }
+
   Future<void> _connect() async {
     final activeProfile = await ref.read(activeProfileProvider.future);
     await _core.start(activeProfile!.id).mapLeft((err) {

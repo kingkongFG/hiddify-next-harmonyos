@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,8 @@ import 'package:hiddify/domain/failures.dart';
 import 'package:hiddify/domain/profiles/profiles.dart';
 import 'package:hiddify/features/common/qr_code_scanner_screen.dart';
 import 'package:hiddify/features/profiles/notifier/notifier.dart';
+import 'package:hiddify/features/profiles/view/paste_link_dialog.dart';
+import 'package:hiddify/services/ohos_platform_service.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -27,6 +28,7 @@ class AddProfileModal extends HookConsumerWidget {
     final t = ref.watch(translationsProvider);
 
     final mutationTriggered = useState(false);
+
     final addProfileMutation = useMutation(
       initialOnFailure: (err) {
         mutationTriggered.value = false;
@@ -52,6 +54,41 @@ class AddProfileModal extends HookConsumerWidget {
 
     final showProgressIndicator =
         addProfileMutation.state.isInProgress || mutationTriggered.value;
+
+    /// Submits a raw clipboard/share payload to the profiles notifier.
+    void submit(String raw) {
+      if (addProfileMutation.state.isInProgress) return;
+      final value = raw.trim();
+      if (value.isEmpty) return;
+      mutationTriggered.value = true;
+      addProfileMutation.setFuture(
+        ref.read(profilesNotifierProvider.notifier).addProfile(value),
+      );
+    }
+
+    /// Reads the clipboard through the HarmonyOS native bridge (which asks for
+    /// READ_PASTEBOARD itself), falling back to Flutter's Clipboard channel.
+    /// When neither yields text we open a manual paste dialog instead of
+    /// silently reporting "invalid URL" - that was the old behaviour and made
+    /// the button look broken on HarmonyOS.
+    Future<void> addFromClipboard() async {
+      final text = await OhosPlatformService.instance.readClipboard();
+      if (text.trim().isEmpty) {
+        if (!context.mounted) return;
+        final pasted = await showDialog<String>(
+          context: context,
+          builder: (_) => PasteLinkDialog(
+            title: t.general.clipboardEmpty,
+            hint: t.general.pasteLinkHint,
+            cancelLabel: MaterialLocalizations.of(context).cancelButtonLabel,
+            confirmLabel: t.general.add,
+          ),
+        );
+        if (pasted != null && pasted.trim().isNotEmpty) submit(pasted);
+        return;
+      }
+      submit(text);
+    }
 
     useMemoized(() async {
       await Future.delayed(const Duration(milliseconds: 200));
@@ -108,18 +145,7 @@ class AddProfileModal extends HookConsumerWidget {
                           label: t.profile.add.fromClipboard,
                           icon: Icons.content_paste,
                           size: buttonWidth,
-                          onTap: () async {
-                            final captureResult =
-                                await Clipboard.getData(Clipboard.kTextPlain)
-                                    .then((value) => value?.text ?? '');
-                            if (addProfileMutation.state.isInProgress) return;
-                            mutationTriggered.value = true;
-                            addProfileMutation.setFuture(
-                              ref
-                                  .read(profilesNotifierProvider.notifier)
-                                  .addProfile(captureResult),
-                            );
-                          },
+                          onTap: addFromClipboard,
                         ),
                         const Gap(buttonsGap),
                         if (!PlatformUtils.isDesktop)

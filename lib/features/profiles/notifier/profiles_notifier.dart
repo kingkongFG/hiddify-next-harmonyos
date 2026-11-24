@@ -53,9 +53,13 @@ class ProfilesNotifier extends _$ProfilesNotifier with AppLogger {
     final activeProfile = await ref.read(activeProfileProvider.future);
     final markAsActive =
         activeProfile == null || ref.read(markNewProfileActiveProvider);
-    // OHOS adapt: `fromText` additionally copes with clipboard payloads that
-    // carry a title line in front of the link, which is what the Android
-    // share sheet and most IM apps put on the clipboard.
+    // OHOS adapt: clipboard/share payloads are rarely a bare URL. They can be
+    // a chat message ("订阅地址：https://..."), a title line followed by the
+    // link, or several node URIs mixed with descriptive text. Normalize first
+    // so both subscription URLs and raw protocol links are recognised.
+    final candidates = LinkParser.extractCandidates(rawInput);
+    final normalized = candidates.isNotEmpty ? candidates.join('\n') : rawInput.trim();
+
     if (LinkParser.fromText(rawInput) case (final link)?) {
       loggy.debug("adding profile, url: [${link.url}]");
       return ref
@@ -65,8 +69,23 @@ class ProfilesNotifier extends _$ProfilesNotifier with AppLogger {
         loggy.warning("failed to add profile", err);
         throw err;
       }).run();
-    } else if (LinkParser.protocol(rawInput) case (final parsed)?) {
+    } else if (LinkParser.protocol(normalized) case (final parsed)?) {
       loggy.debug("adding profile, content");
+      return ref
+          .read(profilesRepositoryProvider)
+          .addByContent(
+            parsed.content,
+            name: parsed.name,
+            markAsActive: markAsActive,
+          )
+          .getOrElse((err) {
+        loggy.warning("failed to add profile", err);
+        throw err;
+      }).run();
+    } else if (LinkParser.protocol(rawInput) case (final parsed)?) {
+      // Keep full base64 / multi-line payloads intact when token extraction
+      // split them up.
+      loggy.debug("adding profile, raw content");
       return ref
           .read(profilesRepositoryProvider)
           .addByContent(

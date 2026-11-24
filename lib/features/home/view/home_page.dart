@@ -8,6 +8,7 @@ import 'package:hiddify/features/common/active_profile/active_profile_notifier.d
 import 'package:hiddify/features/common/active_profile/has_any_profile_notifier.dart';
 import 'package:hiddify/features/common/common.dart';
 import 'package:hiddify/features/home/widgets/widgets.dart';
+import 'package:hiddify/features/profiles/view/share_profile_sheet.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -57,6 +58,12 @@ class HomePage extends HookConsumerWidget {
                   ],
                 ),
                 actions: [
+                  if (activeProfile case AsyncData(value: final current?))
+                    IconButton(
+                      onPressed: () => ShareProfileSheet.show(context, current),
+                      icon: const Icon(Icons.share),
+                      tooltip: t.general.share,
+                    ),
                   IconButton(
                     onPressed: () => const AddProfileRoute().push(context),
                     icon: const Icon(Icons.add_circle),
