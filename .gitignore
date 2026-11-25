@@ -58,5 +58,6 @@ app.*.map.json
 
 # Local backup / temporary adaptation artifacts
 *.bak
+*.bak_*
 *.with_service
 tool/pkguri_probe.dart
