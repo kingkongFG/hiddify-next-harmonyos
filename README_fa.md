@@ -19,6 +19,12 @@
 >
 > License: this port inherits the upstream **CC BY-NC-SA 4.0** license. All original copyright remains with the upstream authors. Please report port-specific bugs in **this** repository, not upstream. Full note: [README.md](README.md).
 
+> ### 🤝 Contributing, technical exchange and roadmap
+>
+> HarmonyOS developers are welcome here. Issues, PRs and plain technical questions about the OpenHarmony adaptation are all appreciated — especially experience with **ArkTS / ArkUI**, the native **VPN / TUN** APIs, native bridging between Dart and ArkTS, and **porting Flutter plugins to OHOS**.
+>
+> **Roadmap:** an **incremental ArkTS re-implementation rehearsal** — migrating the Dart-layer services and screens onto ArkTS / ArkUI step by step while keeping the current HAP usable. Early input on the migration boundary is especially welcome. Full note: [README.md](README.md).
+
 <div align="center">
    
    

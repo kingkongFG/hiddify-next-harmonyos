@@ -16,6 +16,12 @@
 >
 > 许可证：本移植分支继承上游 **CC BY-NC-SA 4.0** 许可证，原始著作权归上游作者所有。移植相关问题请反馈到**本仓库**，不要提交到上游。
 
+> ### 🤝 参与共建、技术交流与路线图
+>
+> 欢迎鸿蒙方向的开发者一起参与。如果你熟悉 **ArkTS / ArkUI**、鸿蒙原生 **VPN / TUN** 能力、Dart 与 ArkTS 之间的原生桥接，或做过 **Flutter 插件向 OHOS 的移植**，欢迎在本仓库提 issue、发 discussion 或直接提 PR；技术路线上的想法和普通提问同样欢迎。
+>
+> **路线图：** 下一步做 **ArkTS 改造的增量迭代预演**——在保持现有 HAP 可用的前提下，逐步把 Dart 层的服务与页面迁移到 ArkTS / ArkUI，而不是一次性推倒重写。欢迎一起来试这个方向；当前最有价值的是对改造边界的意见（哪些继续留在 Flutter、哪些迁到 ArkTS）。
+
 <div align="center">
     
 [![GP-Intalls](https://img.shields.io/endpoint?color=green&logo=google-play&logoColor=green&url=https%3A%2F%2Fplay.cuzi.workers.dev%2Fplay%3Fi%3Dapp.hiddify.com%26l%3DGoogle%2520Play%26m%3D%24shortinstalls&style=flat-square)](https://play.google.com/store/apps/details?id=app.hiddify.com) [![Downloads](https://img.shields.io/github/downloads/hiddify/hiddify-next/total?style=flat-square&logo=github)](https://github.com/hiddify/hiddify-next/releases/)[![Last Version](https://img.shields.io/github/release/hiddify/hiddify-next/all.svg?style=flat-square)](https://github.com/hiddify/hiddify-next/)[![Last Release Date](https://img.shields.io/github/release-date/hiddify/hiddify-next.svg?style=flat-square)](https://github.com/hiddify/hiddify-next/)[![commits](https://img.shields.io/github/commit-activity/m/hiddify/hiddify-next?style=flat-square)](https://github.com/hiddify/hiddify-next/)

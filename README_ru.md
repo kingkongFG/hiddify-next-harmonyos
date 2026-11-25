@@ -16,6 +16,12 @@
 >
 > License: this port inherits the upstream **CC BY-NC-SA 4.0** license. All original copyright remains with the upstream authors. Please report port-specific bugs in **this** repository, not upstream. Full note: [README.md](README.md).
 
+> ### 🤝 Contributing, technical exchange and roadmap
+>
+> HarmonyOS developers are welcome here. Issues, PRs and plain technical questions about the OpenHarmony adaptation are all appreciated — especially experience with **ArkTS / ArkUI**, the native **VPN / TUN** APIs, native bridging between Dart and ArkTS, and **porting Flutter plugins to OHOS**.
+>
+> **Roadmap:** an **incremental ArkTS re-implementation rehearsal** — migrating the Dart-layer services and screens onto ArkTS / ArkUI step by step while keeping the current HAP usable. Early input on the migration boundary is especially welcome. Full note: [README.md](README.md).
+
 <div align="center">
     
 [![GP-Intalls](https://img.shields.io/endpoint?color=green&logo=google-play&logoColor=green&url=https%3A%2F%2Fplay.cuzi.workers.dev%2Fplay%3Fi%3Dapp.hiddify.com%26l%3DGoogle%2520Play%26m%3D%24shortinstalls&style=flat-square)](https://play.google.com/store/apps/details?id=app.hiddify.com) [![Downloads](https://img.shields.io/github/downloads/hiddify/hiddify-next/total?style=flat-square&logo=github)](https://github.com/hiddify/hiddify-next/releases/)[![Last Version](https://img.shields.io/github/release/hiddify/hiddify-next/all.svg?style=flat-square)](https://github.com/hiddify/hiddify-next/)[![Last Release Date](https://img.shields.io/github/release-date/hiddify/hiddify-next.svg?style=flat-square)](https://github.com/hiddify/hiddify-next/)[![commits](https://img.shields.io/github/commit-activity/m/hiddify/hiddify-next?style=flat-square)](https://github.com/hiddify/hiddify-next/)
