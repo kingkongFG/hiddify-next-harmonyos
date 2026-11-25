@@ -56,17 +56,19 @@ export class VpnUiBridge {
   /**
    * Starts the VPN Extension and resolves with its TUN file descriptor.
    */
-  async prepare(timeoutMs: number = 30000): Promise<number> {
+  async prepare(timeoutMs: number = 20000): Promise<number> {
     await this.stop();
+
+    // The system tears the previous VPN session down asynchronously: the
+    // extension process is still running its onDestroy() (destroyTunDevice)
+    // after stopVpnExtensionAbility() has returned. Starting a new session
+    // immediately makes the fresh extension race with that teardown, which
+    // shows up as a connect attempt that never resolves. Let it settle.
+    await this.delay(300);
 
     // 1. Start the VPN extension. The system creates the VPN session and the
     //    extension process, where the TUN device is created.
-    const want: Want = {
-      bundleName: this.bundleName,
-      abilityName: VpnRpc.VPN_ABILITY_NAME,
-    };
-    await vpnExtension.startVpnExtensionAbility(want);
-    VpnLog.info('the vpn extension has been started');
+    await this.startExtensionWithRetry();
 
     // 2. Pull the descriptor out of the extension process.
     //
@@ -74,12 +76,55 @@ export class VpnUiBridge {
     // runs in its own process, so the descriptor can only arrive over RPC.
     // Failing fast surfaces the real error instead of stalling the connect
     // button for a minute.
-    const fd = await this.withTimeout(this.pullTunFd(), timeoutMs);
+    let fd = -1;
+    try {
+      fd = await this.withTimeout(this.pullTunFd(), timeoutMs);
+    } catch (error) {
+      // Never leave a half-started session behind, a leaked extension would
+      // break the next attempt as well.
+      VpnLog.warn('failed to obtain the tun descriptor: ' + JSON.stringify(error));
+      await this.stop();
+      throw error as Error;
+    }
     if (fd <= 0) {
+      await this.stop();
       throw new Error('the vpn extension did not return a tun descriptor');
     }
     VpnLog.info('the tun descriptor has been received: ' + fd);
     return fd;
+  }
+
+  /**
+   * startVpnExtensionAbility() is rejected while the system is still winding
+   * down the previous session, so a couple of attempts are required for a
+   * stop/start cycle (reconnect, network switch) to be reliable.
+   */
+  private async startExtensionWithRetry(attempts: number = 3): Promise<void> {
+    const want: Want = {
+      bundleName: this.bundleName,
+      abilityName: VpnRpc.VPN_ABILITY_NAME,
+    };
+    let lastError = '';
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        await vpnExtension.startVpnExtensionAbility(want);
+        VpnLog.info('the vpn extension has been started');
+        return;
+      } catch (error) {
+        lastError = JSON.stringify(error);
+        VpnLog.warn(
+          'starting the vpn extension failed (attempt ' + (attempt + 1) + '): ' + lastError,
+        );
+        await this.delay(400 * (attempt + 1));
+      }
+    }
+    throw new Error('unable to start the vpn extension: ' + lastError);
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise<void>((resolve) => {
+      setTimeout(() => resolve(), ms);
+    });
   }
 
   /**

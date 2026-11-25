@@ -4,6 +4,7 @@ import 'package:combine/combine.dart';
 import 'package:dartx/dartx.dart';
 import 'package:hiddify/core/prefs/prefs.dart';
 import 'package:hiddify/data/data_providers.dart';
+import 'package:hiddify/domain/connectivity/connectivity.dart';
 import 'package:hiddify/domain/core_service_failure.dart';
 import 'package:hiddify/domain/singbox/singbox.dart';
 import 'package:hiddify/features/common/connectivity/connectivity_controller.dart';
@@ -50,9 +51,22 @@ class ProxiesNotifier extends _$ProxiesNotifier with AppLogger {
   @override
   Stream<List<OutboundGroup>> build() async* {
     ref.disposeDelay(const Duration(seconds: 15));
+    ref.listen(connectivityControllerProvider, (previous, next) {
+      final wasConnected = previous?.valueOrNull is Connected;
+      if (next case AsyncData(value: Connected())) {
+        if (!wasConnected) unawaited(autoSelectFastest());
+      }
+    });
     final serviceRunning = await ref.watch(serviceRunningProvider.future);
     if (!serviceRunning) {
       throw const CoreServiceNotRunning();
+    }
+    // A provider created *after* the tunnel came up never observes a fresh
+    // `Connected` transition, so the listener above never fires and the home
+    // screen stayed without any latency. Kick a selection off for the current
+    // state as well.
+    if (ref.read(connectivityControllerProvider).valueOrNull is Connected) {
+      unawaited(autoSelectFastest());
     }
     final sortBy = ref.watch(proxiesSortNotifierProvider);
     yield* ref
@@ -127,5 +141,95 @@ class ProxiesNotifier extends _$ProxiesNotifier with AppLogger {
         throw err;
       }).run();
     }
+  }
+
+  bool _autoSelecting = false;
+
+  /// Picks the lowest-latency node of every selector group once the tunnel is
+  /// up, so a fresh connection does not silently stay on a dead node.
+  ///
+  /// `urlTestDelay` only refreshes through the outbound event stream, hence
+  /// the wait after triggering the test before a node is picked.
+  Future<void> autoSelectFastest() async {
+    if (_autoSelecting) return;
+    _autoSelecting = true;
+    try {
+      final groups = await _waitForOutbounds();
+      if (groups == null || groups.isEmpty) return;
+      final selectors =
+          groups.where((group) => group.type == ProxyType.selector).toList();
+      if (selectors.isEmpty) return;
+      loggy.info("auto selecting fastest node for ${selectors.length} group(s)");
+      for (final group in selectors) {
+        try {
+          await urlTest(group.tag);
+        } catch (e) {
+          loggy.warning("url test failed for [${group.tag}]", e);
+        }
+      }
+      final updated =
+          await _waitForDelays(selectors.map((g) => g.tag).toSet()) ??
+              state.valueOrNull ??
+              groups;
+      for (final group in updated.where((g) => g.type == ProxyType.selector)) {
+        final candidates = group.items
+            .where(
+              (item) =>
+                  item.type != ProxyType.selector &&
+                  item.type != ProxyType.urltest &&
+                  item.urlTestDelay > 0,
+            )
+            .toList();
+        if (candidates.isEmpty) continue;
+        candidates.sort((a, b) => a.urlTestDelay.compareTo(b.urlTestDelay));
+        final best = candidates.first;
+        if (best.tag == group.selected) continue;
+        loggy.info(
+          "auto selected [${best.tag}] (${best.urlTestDelay}ms) in [${group.tag}]",
+        );
+        await changeProxy(group.tag, best.tag);
+      }
+    } finally {
+      _autoSelecting = false;
+    }
+  }
+
+  /// urlTest results arrive asynchronously through the outbound event stream,
+  /// so a fixed wait either decides on all-zero delays or gives up too early.
+  /// Poll until every requested selector reports at least one latency.
+  Future<List<OutboundGroup>?> _waitForDelays(
+    Set<String> groupTags, {
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final groups = state.valueOrNull;
+      if (groups == null) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        continue;
+      }
+      final pending = groups.where(
+        (g) =>
+            groupTags.contains(g.tag) &&
+            !g.items.any(
+              (item) =>
+                  item.type != ProxyType.selector &&
+                  item.type != ProxyType.urltest &&
+                  item.urlTestDelay > 0,
+            ),
+      );
+      if (pending.isEmpty) return groups;
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    }
+    return state.valueOrNull;
+  }
+
+  Future<List<OutboundGroup>?> _waitForOutbounds() async {
+    for (var i = 0; i < 20; i++) {
+      final groups = state.valueOrNull;
+      if (groups != null && groups.isNotEmpty) return groups;
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    return state.valueOrNull;
   }
 }

@@ -5,7 +5,9 @@ import 'package:hiddify/core/core_providers.dart';
 import 'package:hiddify/core/prefs/prefs.dart';
 import 'package:hiddify/domain/connectivity/connectivity.dart';
 import 'package:hiddify/domain/failures.dart';
+import 'package:hiddify/domain/singbox/singbox.dart';
 import 'package:hiddify/features/common/connectivity/connectivity_controller.dart';
+import 'package:hiddify/features/proxies/notifier/proxies_notifier.dart';
 import 'package:hiddify/gen/assets.gen.dart';
 import 'package:hiddify/utils/alerts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -18,6 +20,21 @@ class ConnectionButton extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider);
     final connectionStatus = ref.watch(connectivityControllerProvider);
+    // Delay of the node that the main selector currently points at. The
+    // proxies provider is only alive while the tunnel runs, hence valueOrNull.
+    final nodeDelay = ref.watch(
+      proxiesNotifierProvider.select((asyncGroups) {
+        final groups = asyncGroups.valueOrNull;
+        if (groups == null) return 0;
+        for (final group in groups) {
+          if (group.type != ProxyType.selector) continue;
+          for (final item in group.items) {
+            if (item.tag == group.selected) return item.urlTestDelay;
+          }
+        }
+        return 0;
+      }),
+    );
 
     ref.listen(
       connectivityControllerProvider,
@@ -48,6 +65,9 @@ class ConnectionButton extends HookConsumerWidget {
           enabled: !status.isSwitching,
           label: status.present(t),
           buttonColor: connectionLogoColor,
+          delayLabel: status.isConnected
+              ? (nodeDelay > 0 ? '$nodeDelay ms' : '—')
+              : null,
         );
       case AsyncError():
         return _ConnectionButton(
@@ -76,12 +96,14 @@ class _ConnectionButton extends StatelessWidget {
     required this.enabled,
     required this.label,
     required this.buttonColor,
+    this.delayLabel,
   });
 
   final VoidCallback onTap;
   final bool enabled;
   final String label;
   final Color buttonColor;
+  final String? delayLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -111,14 +133,33 @@ class _ConnectionButton extends StatelessWidget {
               color: Colors.white,
               child: InkWell(
                 onTap: onTap,
-                child: Padding(
-                  padding: const EdgeInsets.all(36),
-                  child: Assets.images.logo.svg(
-                    colorFilter: ColorFilter.mode(
-                      buttonColor,
-                      BlendMode.srcIn,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(36),
+                      child: Assets.images.logo.svg(
+                        colorFilter: ColorFilter.mode(
+                          buttonColor,
+                          BlendMode.srcIn,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (delayLabel case final delay?)
+                      Positioned(
+                        bottom: 26,
+                        child: Text(
+                          delay,
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                color: buttonColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ).animate(target: enabled ? 0 : 1).blurXY(end: 1),

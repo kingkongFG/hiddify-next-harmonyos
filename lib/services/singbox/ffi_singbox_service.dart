@@ -196,11 +196,27 @@ class FFISingboxService
   TaskEither<String, Unit> stop() {
     return TaskEither(
       () async {
+        // OHOS adapt: the stats / groups command streams are bound to the
+        // core instance that is about to go away. Keeping them cached makes
+        // every later start silently reuse a dead stream, which is why node
+        // delays stayed empty (and auto selection never ran) after the first
+        // stop/start cycle.
+        _statusStream = null;
+        _groupsStream = null;
         final result =
             await CombineWorker().execute<Either<String, Unit>>(() {
+          try {
+            _box.stopCommandClient(1).cast<Utf8>().toDartString();
+            _box.stopCommandClient(4).cast<Utf8>().toDartString();
+          } catch (e) {
+            _logger.debug('failed to stop command clients: $e');
+          }
           final err = _box.stop().cast<Utf8>().toDartString();
           if (err.isNotEmpty) {
             return left(err);
+          }
+          if (OhosVpnBridge.isSupported) {
+            _box.clearTunFd();
           }
           return right(unit);
         });
@@ -218,18 +234,70 @@ class FFISingboxService
   @override
   TaskEither<String, Unit> restart(String configPath) {
     return TaskEither(
-      () => CombineWorker().execute(
-        () {
+      () async {
+        if (!OhosVpnBridge.isSupported) {
+          return await CombineWorker().execute<Either<String, Unit>>(() {
+            final err = _box
+                .restart(configPath.toNativeUtf8().cast())
+                .cast<Utf8>()
+                .toDartString();
+            if (err.isNotEmpty) {
+              return left(err);
+            }
+            return right(unit);
+          });
+        }
+
+        // OHOS adapt: the system VPN extension owns the tunnel, and asking it
+        // for a descriptor always tears the old one down first. A bare core
+        // restart keeps reading the previous (already closed) descriptor, so
+        // the tunnel stayed dead after a network switch or a profile change.
+        // Stop the core, rebuild the tunnel, then cold start with the fresh
+        // descriptor.
+        _statusStream = null;
+        _groupsStream = null;
+        final stopResult =
+            await CombineWorker().execute<Either<String, Unit>>(() {
+          try {
+            _box.stopCommandClient(1).cast<Utf8>().toDartString();
+            _box.stopCommandClient(4).cast<Utf8>().toDartString();
+          } catch (e) {
+            _logger.debug('failed to stop command clients: $e');
+          }
+          final err = _box.stop().cast<Utf8>().toDartString();
+          if (err.isNotEmpty) {
+            return left(err);
+          }
+          return right(unit);
+        });
+        stopResult.match(
+          (e) => _logger.error('core did not stop cleanly before restart: $e'),
+          (_) => unit,
+        );
+        _box.clearTunFd();
+
+        int tunFd;
+        try {
+          tunFd = await OhosVpnBridge.instance.prepare();
+        } catch (e) {
+          _logger.error('failed to rebuild the vpn tunnel on restart: $e');
+          return left('failed to rebuild the vpn tunnel: $e');
+        }
+
+        return await CombineWorker().execute<Either<String, Unit>>(() {
+          if (tunFd > 0) {
+            _box.setTunFd(tunFd);
+          }
           final err = _box
-              .restart(configPath.toNativeUtf8().cast())
+              .start(configPath.toNativeUtf8().cast())
               .cast<Utf8>()
               .toDartString();
           if (err.isNotEmpty) {
             return left(err);
           }
           return right(unit);
-        },
-      ),
+        });
+      },
     );
   }
 

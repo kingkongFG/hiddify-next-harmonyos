@@ -6,6 +6,19 @@
 
 <p align="center"><img src="assets/images/logo.svg" width="168"/></p>
 
+> ### ⚠️ Unofficial HarmonyOS (OpenHarmony) port — read this first
+>
+> This repository is a **fork of [Hiddify-Next](https://github.com/hiddify/hiddify-next) by the Hiddify team**, not an original product. The client design, the Dart/Flutter application code and UI, and the `sing-box` based core all come from the upstream project and its contributors. This repository **only maintains the HarmonyOS adaptation**; the official app lives upstream.
+>
+> What this fork actually changes:
+>
+> - **Added an ArkTS native host project** under `ohos/`: `EntryAbility`, `VpnExtAbility` (VPN extension ability), `VpnTunFactory` / `VpnTunStore` / `VpnRpc` (TUN device and fd passing), `VpnUiBridge` (Dart ↔ ArkTS channel), `OhosPlatformService` and plugin registration.
+> - **The Dart layer is inherited from upstream and is *not* rewritten in ArkTS.** Only the platform/native layer is ArkTS.
+> - The Go `sing-box` core is rebuilt for `openharmony/arm64` with the `lwip` network stack and shipped as `ohos/entry/libs/arm64-v8a/libcore.so`.
+> - Supported platform: HarmonyOS phone / tablet (arm64, bundle name `com.hiddify.harmony`). HarmonyOS PC (x86_64) is **not** supported yet.
+>
+> License: this port inherits the upstream **CC BY-NC-SA 4.0** license. All original copyright remains with the upstream authors. Please report port-specific bugs in **this** repository, not upstream.
+
 <div align="center">
     
 [![GP-Intalls](https://img.shields.io/endpoint?color=green&logo=google-play&logoColor=green&url=https%3A%2F%2Fplay.cuzi.workers.dev%2Fplay%3Fi%3Dapp.hiddify.com%26l%3DGoogle%2520Play%26m%3D%24shortinstalls&style=flat-square)](https://play.google.com/store/apps/details?id=app.hiddify.com) [![Downloads](https://img.shields.io/github/downloads/hiddify/hiddify-next/total?style=flat-square&logo=github)](https://github.com/hiddify/hiddify-next/releases/)[![Last Version](https://img.shields.io/github/release/hiddify/hiddify-next/all.svg?style=flat-square)](https://github.com/hiddify/hiddify-next/)[![Last Release Date](https://img.shields.io/github/release-date/hiddify/hiddify-next.svg?style=flat-square)](https://github.com/hiddify/hiddify-next/)[![commits](https://img.shields.io/github/commit-activity/m/hiddify/hiddify-next?style=flat-square)](https://github.com/hiddify/hiddify-next/)
@@ -19,6 +32,8 @@
 
 The app is developed using [Flutter](https://flutter.dev) and [Go](https://go.dev). For more information you can read through our [Contribution Guidelines](https://github.com/hiddify/hiddify-next/blob/main/CONTRIBUTING.md) for development.
 
+<p dir="ltr" style="font-size: 16px"><strong>Note for this repository:</strong> the description above is about the <strong>upstream</strong> Hiddify-Next project, not about work done here. In this fork the Flutter/Dart application and its dependencies are kept as-is, and <strong>HarmonyOS support is added through a new ArkTS native layer</strong> plus a re-compiled Go core for <code>openharmony/arm64</code>. Claiming that this client was "developed from scratch in ArkTS for HarmonyOS" is incorrect — see the notice at the top of this page for the exact scope of the changes.</p>
+
 <div align=center>
 <img width=90% alt="English Demo" src="https://github.com/hiddify/hiddify-next/assets/125398461/ffe5346d-3404-470f-b5e0-4364e23743d2">
 
@@ -30,6 +45,8 @@ The app is developed using [Flutter](https://flutter.dev) and [Go](https://go.de
 ⭐ Easy to use with a simple UI
 
 ✈️ Multi-platform: Android, Windows, Linux and macOS (PRs for iOS are welcome)
+
+📱 **This fork targets HarmonyOS phone / tablet (arm64) only.** The platform list above and the download table below refer to upstream official builds — no prebuilt HarmonyOS package is published by this repository; build it locally with the OpenHarmony Flutter toolchain and DevEco Studio.
 
 🔍 Auto selection based on delay
 

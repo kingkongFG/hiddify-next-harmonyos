@@ -30,6 +30,12 @@ dependency_overrides:
   # Android behaviour because HarmonyOS is a mobile platform.
   flex_color_scheme:
     path: G:/DevTemp/workbuddyDL/flex_color_scheme_ohos
+  # OHOS adapt: Flutter 3.44 added the `scheduleNewFrame` named argument to
+  # `SchedulerBinding.scheduleFrameCallback`, so combine 0.5.8's isolate
+  # binding no longer satisfies the interface. The local copy only mirrors the
+  # new signature (the method body still throws, as before).
+  combine:
+    path: G:/DevTemp/workbuddyDL/combine_ohos
   # OHOS adapt: the sqlite3 package only knows android/linux/iOS/macOS/windows
   # and its default loader throws `UnsupportedError: Unsupported platform:
   # ohos` on HarmonyOS (Platform.isLinux is false there). The local copy adds

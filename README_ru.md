@@ -3,6 +3,19 @@
 
 <p align="center"><img src="assets/images/logo.svg" width="168"/></p>
 
+> ### WARNING: Unofficial HarmonyOS (OpenHarmony) port - read this first
+>
+> This repository is a **fork of [Hiddify-Next](https://github.com/hiddify/hiddify-next) by the Hiddify team**, not an original product. The client design, the Dart/Flutter application code and UI, and the `sing-box` based core all come from the upstream project and its contributors. This repository **only maintains the HarmonyOS adaptation**; the official app lives upstream.
+>
+> What this fork actually changes:
+>
+> - A new **ArkTS** native host project under `ohos/`: `EntryAbility`, `VpnExtAbility` (VPN extension ability), `VpnTunFactory` / `VpnTunStore` / `VpnRpc` (TUN device and fd passing), `VpnUiBridge` (Dart to ArkTS channel), `OhosPlatformService` and plugin registration.
+> - **The Dart layer is inherited from upstream and is NOT rewritten in ArkTS.** Only the platform/native layer is ArkTS.
+> - The Go `sing-box` core is rebuilt for `openharmony/arm64` with the `lwip` network stack and shipped as `ohos/entry/libs/arm64-v8a/libcore.so`.
+> - Supported platform: HarmonyOS phone / tablet (arm64, bundle name `com.hiddify.harmony`). HarmonyOS PC (x86_64) is not supported yet.
+>
+> License: this port inherits the upstream **CC BY-NC-SA 4.0** license. All original copyright remains with the upstream authors. Please report port-specific bugs in **this** repository, not upstream. Full note: [README.md](README.md).
+
 <div align="center">
     
 [![GP-Intalls](https://img.shields.io/endpoint?color=green&logo=google-play&logoColor=green&url=https%3A%2F%2Fplay.cuzi.workers.dev%2Fplay%3Fi%3Dapp.hiddify.com%26l%3DGoogle%2520Play%26m%3D%24shortinstalls&style=flat-square)](https://play.google.com/store/apps/details?id=app.hiddify.com) [![Downloads](https://img.shields.io/github/downloads/hiddify/hiddify-next/total?style=flat-square&logo=github)](https://github.com/hiddify/hiddify-next/releases/)[![Last Version](https://img.shields.io/github/release/hiddify/hiddify-next/all.svg?style=flat-square)](https://github.com/hiddify/hiddify-next/)[![Last Release Date](https://img.shields.io/github/release-date/hiddify/hiddify-next.svg?style=flat-square)](https://github.com/hiddify/hiddify-next/)[![commits](https://img.shields.io/github/commit-activity/m/hiddify/hiddify-next?style=flat-square)](https://github.com/hiddify/hiddify-next/)

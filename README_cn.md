@@ -3,6 +3,19 @@
 
 <p align="center"><img src="assets/images/logo.svg" width="168"/></p>
 
+> ### ⚠️ 本仓库是 Hiddify-Next 的鸿蒙（OpenHarmony）非官方移植分支，请先阅读
+>
+> 本仓库是 **[Hiddify-Next](https://github.com/hiddify/hiddify-next)（Hiddify 团队）的 fork**，不是原创项目。客户端的产品设计、Dart/Flutter 应用代码与界面、以及基于 `sing-box` 的内核均来自上游项目及其贡献者。**本仓库只维护鸿蒙适配部分**，官方版本请前往上游仓库获取。
+>
+> 本分支实际改动的内容：
+>
+> - **新增 ArkTS 原生宿主工程** `ohos/`：`EntryAbility`、`VpnExtAbility`（VPN 扩展 Ability）、`VpnTunFactory` / `VpnTunStore` / `VpnRpc`（TUN 设备与 fd 传递）、`VpnUiBridge`（Dart ↔ ArkTS 通道）、`OhosPlatformService` 与插件注册。
+> - **Dart 层沿用上游代码，并未改写为 ArkTS**；ArkTS 只覆盖平台/原生层。
+> - Go `sing-box` 内核以 `openharmony/arm64` 目标、`lwip` 网络栈重新编译，产出 `ohos/entry/libs/arm64-v8a/libcore.so`。
+> - 支持平台：鸿蒙手机 / 平板（arm64，包名 `com.hiddify.harmony`）；鸿蒙 PC（x86_64）**暂未支持**。
+>
+> 许可证：本移植分支继承上游 **CC BY-NC-SA 4.0** 许可证，原始著作权归上游作者所有。移植相关问题请反馈到**本仓库**，不要提交到上游。
+
 <div align="center">
     
 [![GP-Intalls](https://img.shields.io/endpoint?color=green&logo=google-play&logoColor=green&url=https%3A%2F%2Fplay.cuzi.workers.dev%2Fplay%3Fi%3Dapp.hiddify.com%26l%3DGoogle%2520Play%26m%3D%24shortinstalls&style=flat-square)](https://play.google.com/store/apps/details?id=app.hiddify.com) [![Downloads](https://img.shields.io/github/downloads/hiddify/hiddify-next/total?style=flat-square&logo=github)](https://github.com/hiddify/hiddify-next/releases/)[![Last Version](https://img.shields.io/github/release/hiddify/hiddify-next/all.svg?style=flat-square)](https://github.com/hiddify/hiddify-next/)[![Last Release Date](https://img.shields.io/github/release-date/hiddify/hiddify-next.svg?style=flat-square)](https://github.com/hiddify/hiddify-next/)[![commits](https://img.shields.io/github/commit-activity/m/hiddify/hiddify-next?style=flat-square)](https://github.com/hiddify/hiddify-next/)
@@ -16,6 +29,8 @@
 
 该应用程序是使用 [Flutter](https://flutter.dev/) 和 [Go](https://go.dev/) 开发的。 欲了解更多信息，您可以阅读我们的开发贡献指南。
 
+**本仓库说明：** 以上介绍描述的是**上游** Hiddify-Next 项目，不代表本仓库的工作内容。本分支中 Flutter/Dart 应用及其依赖保持上游原样，**鸿蒙支持是通过新增 ArkTS 原生层 + 为 `openharmony/arm64` 重新编译 Go 内核实现的**。若表述为「本客户端为鸿蒙原生、用 ArkTS 从零开发」，属于错误描述，实际改动范围见本页顶部声明。
+
 
 <div align=center>
 <img width=90% alt="English Demo" src="https://github.com/hiddify/hiddify-next/assets/125398461/531d6db2-ae7a-4234-addd-1a32b76050b8">
@@ -26,6 +41,8 @@
 ⭐ 简单的用户界面易于使用
 
 ✈️ 多平台：Android、Windows、Linux 和 macOS（欢迎 iOS 的 PR）
+
+📱 **本分支仅面向鸿蒙手机 / 平板（arm64）。** 上述平台列表与下方下载表格均指上游官方构建，本仓库不发布鸿蒙预编译包，需用 OpenHarmony Flutter 工具链配合 DevEco Studio 本地构建。
 
 🔍 基于延迟的自动选择
 

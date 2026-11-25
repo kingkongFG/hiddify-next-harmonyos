@@ -905,6 +905,17 @@ class SingboxNativeLibrary {
       _lookup<ffi.NativeFunction<ffi.Int Function()>>('getTunFd');
   late final _getTunFd = _getTunFdPtr.asFunction<int Function()>();
 
+  /// OHOS adapt: forget the injected TUN file descriptor. Called after the
+  /// core stopped so a later start never reuses a descriptor that the system
+  /// VPN extension already closed.
+  void clearTunFd() {
+    return _clearTunFd();
+  }
+
+  late final _clearTunFdPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function()>>('clearTunFd');
+  late final _clearTunFd = _clearTunFdPtr.asFunction<void Function()>();
+
   late final _setupPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>,

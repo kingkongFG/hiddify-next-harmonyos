@@ -83,6 +83,7 @@ extern void setupOnce(void* api);
 extern void setup(char* baseDir, char* workingDir, char* tempDir, long long statusPort);
 extern void setTunFd(int fd);
 extern int getTunFd();
+extern void clearTunFd();
 extern char* parse(char* path, char* tempPath, GoUint8 debug);
 extern char* changeConfigOptions(char* configOptionsJson);
 extern char* start(char* configPath);
